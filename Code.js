@@ -1,3 +1,7 @@
+/**
+ * For every meal logged in the daily meals sheet we need to bundle the meal data into a single, condensed 
+ * daily summary of macros.  Individual daily meal rows are then summarized in a JSON list on the new sheet.
+ */
 function generateDailySummary(e) {
   if (e && e.source.getActiveSheet().getName() !== "Daily Meals") {
     return;
@@ -102,4 +106,70 @@ function generateDailySummary(e) {
   if (outputRows.length > 0) {
     summarySheet.getRange(2, 1, outputRows.length, 7).setValues(outputRows);
   }
+
+  // manages events called "Meals" that pretty print the JSON summary in my Google calendar
+  updateGoogleCalendar();
 }
+
+/**
+ * For every day in the Daily Summary sheet of the food tracker we need to ensure we already have 
+ * the day's meals included as notes on the day so we can look back at a day on the Calendar app 
+ * and see the food.
+ */
+function updateGoogleCalendar() {
+  /*if (e && e.source.getActiveSheet().getName() !== "Daily Summary") {
+    return;
+  }*/
+
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const spreadsheetId = scriptProperties.getProperty('SPREADSHEET_ID');
+  const ss = SpreadsheetApp.openById(spreadsheetId);
+
+  const summarySheet = ss.getSheetByName("Daily Summary");
+  const dailyMealsSummaryData = summarySheet.getDataRange().getValues();
+  const myCalendar = CalendarApp.getCalendarById(scriptProperties.getProperty('GMAIL_EMAIL_ADDRESS'));
+
+  for (let dailyMealSummaries of dailyMealsSummaryData) {
+    // To skip the header row ("Date", "Meals", etc.) if it's the first loop pass
+    if (dailyMealSummaries[0] === "Date") continue; 
+
+    // Now dailyMealSummaries represents the current row array
+    const targetDate = new Date(dailyMealSummaries[0]); // Assuming Date is in Column A
+    const meals = JSON.parse(dailyMealSummaries[1]);       // Assuming JSON is in Column B
+
+    // Builds an event descriptions that show the total calories, protein, and a list of the food items/meals eaten that day.
+    let mealEventDescription = "";
+
+    mealEventDescription += "Calories: " + dailyMealSummaries[2] + "kcal\n";
+    mealEventDescription += "Protein: " + dailyMealSummaries[3] + "g\n";
+    mealEventDescription += "Meals: \n\n"
+    
+    for (let meal of meals) {
+      mealEventDescription += "*" + meal.item + " \n";
+    }
+
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+    
+    const existingEvents = myCalendar.getEvents(startOfDay, endOfDay, {search: 'Meals'});
+    let mealEvent = existingEvents.find(e => e.getTitle() === 'Meals');
+    
+    // Get a clean timestamp for the actual current day (today)
+    const today = new Date();
+    const isToday = targetDate.getDate() === today.getDate() &&
+                    targetDate.getMonth() === today.getMonth() &&
+                    targetDate.getFullYear() === today.getFullYear();
+    
+    if (!mealEvent) {
+      let  newMealEvent = myCalendar.createAllDayEvent('Meals', startOfDay, {
+        description: mealEventDescription
+      });
+
+      newMealEvent.setColor(CalendarApp.EventColor.GRAY);
+    } else if (isToday) { // update the Meals event since we're still adding food items on the current day
+      mealEvent.setDescription(mealEventDescription);
+      Logger.log("Updated today's existing Meals event with latest tracking data.");
+    }
+  }
+}
+
