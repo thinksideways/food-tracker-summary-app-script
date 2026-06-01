@@ -1,4 +1,4 @@
-# Food Tracker Summary Appscript
+# Food Tracker Summary Apps Script
 
 I've been tracking what I eat daily using Gemini for a while now but the context window usually fries out long before I'm able to see a full week breakdown.
 
@@ -20,7 +20,7 @@ To fix this I've created a workbook on Google Sheets with two sheets:
 ![Google Calendar Individual Days Meals Event](meals-event-example.png)
 
 Special note: 
-I'm using a built in Appscript feature called Script Properties:
+I'm using a built in Apps Script feature called Script Properties:
 
 `SPREADSHEET_ID` is mapped to a specific Google Sheet via this feature to prevent leaked IDs on GitHub.
 `GMAIL_EMAIL_ADDRESS` is the target Calendar's associated email address.
